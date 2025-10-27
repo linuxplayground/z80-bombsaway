@@ -2,3 +2,4 @@
 *.o
 *.s
 sdcard.img
+firmware.bin

@@ -32,10 +32,15 @@ static uint8_t frame = 0;
 static char c = 0;
 static uint16_t score = 0;
 
+static char tb[32];
+
 void vidsetup() {
   tms_init_g1(BLACK, DARK_YELLOW, true, false);
   tms_load_pat(tms_patterns, 0x400);
-  memset(g1colors, 0x71, 32);
+  memset(g1colors, 0xC1, 32);
+  g1colors[16] = 0xE1;
+  g1colors[17] = 0xE1;
+  g1colors[18] = 0x61;
   tms_load_col(g1colors, 32);
   tms_load_spr(sprsheet, 64);
   sprites[0].color = DARK_GREEN;
@@ -68,7 +73,7 @@ void ldbomtiles() {
   char *p = bomb;
   uint8_t i;
   tms_w_addr(tms_patt_tbl + (0x80 * 8));
-  for (i = 0; i < 192; ++i) {
+  for (i = 0; i < 240; ++i) {
     tms_put(*p++);
   }
 }
@@ -122,12 +127,7 @@ void animshells() {
 
 void clear_bomb(uint8_t j) {
   bombs[j].active = false;
-  tms_put_char(bombs[j].x, bombs[j].y, ' ');
-  tms_put_char(bombs[j].x + 1, bombs[j].y, ' ');
-  tms_put_char(bombs[j].x, bombs[j].y + 1, ' ');
-  tms_put_char(bombs[j].x + 1, bombs[j].y + 1, ' ');
-  tms_put_char(bombs[j].x, bombs[j].y + 2, ' ');
-  tms_put_char(bombs[j].x + 1, bombs[j].y + 2, ' ');
+  drawbomb(tms_buf + bombs[j].y * 32 + bombs[j].x, 4);
 }
 
 void bombhit() {
@@ -208,11 +208,11 @@ void main() {
 
     c = cpm_rawio();
     switch (c) {
-    case 'a':
+    case ',':
       if (sprites[0].x > 8)
         sprites[0].x -= 24;
       break;
-    case 'd':
+    case '.':
       if (sprites[0].x < 224)
         sprites[0].x += 24;
       break;
@@ -225,5 +225,7 @@ void main() {
     animshells();
     paint();
   } while (c != 0x1b && !gameover);
-  printf("You scored: %d\r\n", score);
+  sprintf(tb, "You scored: %d\r\n", score);
+  tms_puts_xy(4, 11, tb);
+  paint();
 }

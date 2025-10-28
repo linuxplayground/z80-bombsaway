@@ -29,8 +29,13 @@ static uint8_t j = 0;
 static uint16_t I = 0;
 static char c = 0;
 static uint16_t score = 0;
-static uint8_t shellsleft = 40;
+static uint8_t shellsleft = 15;
 static uint8_t maxbombs = 4;
+static uint8_t lvlctr = 10;
+
+// variable to record the frame count
+static uint8_t ff = 0;
+static bool gameover = false;
 
 static char tb[32];
 
@@ -168,6 +173,14 @@ void bombhit() {
               shells[i] = false;
               sprites[i + 1].y = 192;
               score++;
+              lvlctr --;
+              if (lvlctr == 0) {
+                maxbombs += 2;
+                if (maxbombs > MAX_BOMBS)
+                  maxbombs = MAX_BOMBS;
+                shellsleft += 12;
+                lvlctr = 10;
+              }
             }
           }
         }
@@ -190,11 +203,6 @@ bool plyrhit() {
   }
   return false;
 }
-
-// variable to record the frame count
-static uint8_t ff = 0;
-
-bool gameover = false;
 
 // Main entry function of the game.
 void main() {
@@ -277,9 +285,8 @@ void main() {
     // paint right at the end.  Will wait for next vdp interrupt
     paint();
 
-  } while (!gameover);
+  } while (c!=0x1b && !gameover);
 
   tms_puts_xy(8, 11, "GAME OVER");
   paint();
-  // exit
 }

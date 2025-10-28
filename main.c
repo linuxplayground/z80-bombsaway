@@ -5,11 +5,12 @@
 #include <string.h>
 #include <tms.h>
 #include <tms_patterns.h>
+#include <joy.h>
 
 #include "bombs.h"
 
 #define MAX_BOMBS 20
-#define MAX_SHELLS 3
+#define MAX_SHELLS 1
 
 extern void drawbomb(char *p, uint8_t f);
 
@@ -20,7 +21,6 @@ typedef struct bomb_s {
 } bomb_t;
 
 static bomb_t bombs[MAX_BOMBS];
-
 static bool shells[MAX_SHELLS];
 
 static char g1colors[32];
@@ -29,13 +29,13 @@ static uint8_t j = 0;
 static uint16_t I = 0;
 static char c = 0;
 static uint16_t score = 0;
-static uint8_t shellsleft = 15;
+static uint8_t shellsleft = 12;
 static uint8_t maxbombs = 4;
 static uint8_t lvlctr = 10;
+static uint8_t ctr = 0;
 
 // variable to record the frame count
 static uint8_t ff = 0;
-static bool gameover = false;
 
 static char tb[32];
 
@@ -80,7 +80,6 @@ void vidsetup() {
   sprites[3].x = 128;
   sprites[3].y = 192;
   sprites[4].y = 0xD0;
-
 }
 
 void paint() {
@@ -123,17 +122,20 @@ void new_bomb(uint8_t idx) {
 // add a new shell sprite if there are not already MAX_SHELLS
 // in flight and there are sufficient shells left.
 // Decrements teh shellsleft counter.
-void do_shoot() {
+bool do_shoot() {
   for (i = 0; i < MAX_SHELLS; ++i) {
     if (!shells[i]) {
-      shellsleft --;
       if (shellsleft > 0) {
+        shellsleft--;
         shells[i] = true;
         sprites[i + 1].x = sprites[0].x;
-        return;
+        return true;
+      } else {
+        return false;
       }
     }
   }
+  return true;
 }
 
 // Moves the shells along their paths.  Hides those that pass through the
@@ -155,7 +157,7 @@ void animshells() {
 // plots the blank bomb (frame 4)
 void clear_bomb(uint8_t j) {
   bombs[j].active = false;
-  drawbomb(tms_buf + (bombs[j].y-1) * 32 + bombs[j].x, 4);
+  drawbomb(tms_buf + (bombs[j].y - 1) * 32 + bombs[j].x, 4);
 }
 
 // For every active shell, search through the active bombs
@@ -173,12 +175,12 @@ void bombhit() {
               shells[i] = false;
               sprites[i + 1].y = 192;
               score++;
-              lvlctr --;
+              lvlctr--;
               if (lvlctr == 0) {
                 maxbombs += 2;
                 if (maxbombs > MAX_BOMBS)
                   maxbombs = MAX_BOMBS;
-                shellsleft += 12;
+                shellsleft += 11;
                 lvlctr = 10;
               }
             }
@@ -213,12 +215,13 @@ void main() {
   memset(shells, 0, MAX_SHELLS);
 
   // main game loop
-  do {
+  while (1) {
 
     // we only check for bomb and player collisions at frame 0
     if (ff == 0) {
       bombhit();
-      gameover = plyrhit();
+      if (plyrhit())
+        goto end;
     }
 
     // Bomb animation
@@ -263,30 +266,49 @@ void main() {
         sprites[0].x += 24;
       break;
     case ' ':
-      do_shoot();
+      if (!do_shoot())
+        goto end;
       break;
-    case 0x1b:  // escape ends the game at any time
-      gameover = true;
+    case 0x1b:
+      goto end;
     }
 
-    // TODO: increase shells and max bombs as game progresses.
-    itoa(shellsleft, tb, 10);
-    tms_puts_xy(1, 0, "SHELLS:       ");
+    if (ctr == 6) {
+      ctr = 0;
+      c = joy(0);
+      if ((c & JOY_MAP_BUTTON) == 0) {
+        if (!do_shoot())
+          goto end;
+      }
+      if ( (c & JOY_MAP_LEFT) == 0) {
+        if (sprites[0].x > 8)
+          sprites[0].x -= 24;
+      } else if ( (c & JOY_MAP_RIGHT) == 0) {
+        if (sprites[0].x < 224)
+          sprites[0].x += 24;
+      }
+    }
+
+    uitoa(shellsleft, tb);
+    tms_puts_xy(1, 0, "SHELLS       ");
     tms_puts_xy(9, 0, tb);
-    itoa(score, tb, 10);
-    tms_puts_xy(15,0, "SCORE:       ");
-    tms_puts_xy(22,0, tb);
+    uitoa(score, tb);
+    tms_puts_xy(15, 0, "SCORE       ");
+    tms_puts_xy(22, 0, tb);
     animshells();
 
     // we roll the frame back to 0 at 4
-    ff ++;
-    if (ff > 3 )
+    ff++;
+    if (ff > 3)
       ff = 0;
     // paint right at the end.  Will wait for next vdp interrupt
+    ctr ++;
     paint();
+  }
 
-  } while (c!=0x1b && !gameover);
-
+end:
   tms_puts_xy(8, 11, "GAME OVER");
-  paint();
+  tms_wait();
+  tms_g1flush(tms_buf);
+  return;
 }

@@ -4,7 +4,7 @@ AS=/opt/fcc/bin/asz80
 LD=/opt/fcc/bin/ldz80
 CPP=/usr/bin/cpp -undef -nostdinc
 
-CFLAGS=-O2 -mz80 -I /home/davelatham/dev/libcpm/include
+CFLAGS=-O2 -mz80 -I /home/davelatham/dev/libcpm/include -I /home/davelatham/dev/libcpm/include/arch/RETRO/
 LDFLAGS=-b -C0x100
 CPPFLAGS=
 LDLIBS=\

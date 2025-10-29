@@ -1,5 +1,6 @@
 #include "bombs.h"
 #include <cpm.h>
+#include <io.h>
 #include <joy.h>
 #include <rand.h>
 #include <stdbool.h>
@@ -8,7 +9,7 @@
 #include <tms.h>
 #include <tms_patterns.h>
 
-#define MAX_BOMBS 8
+#define MAX_BOMBS 12
 
 extern void drawbomb(char *p, uint8_t f);
 
@@ -318,7 +319,7 @@ void gameloop() {
     center(10, "By productiondave");
     center(11, "(c) 2025");
     center(13, "v 1.0.0");
-    center(23, "Press a key or button to play");
+    center(23, "Press button to play");
     sprites[0].y = 192;
     paint();
 
@@ -327,13 +328,11 @@ void gameloop() {
       if (c > 0) {
         if (c == 0x1b) {
           return false;
-        } else {
-          c = 0; // don't want to shoot a shell right away.
-          return true;
         }
       }
 
-      if ((joy(0) & JOY_MAP_BUTTON) == 0) {
+      c = joy(0);
+      if ((c & JOY_MAP_BUTTON) == 0) {
         delay(30);
         return true;
       }

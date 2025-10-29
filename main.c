@@ -1,14 +1,14 @@
+#include "bombs.h"
 #include <cpm.h>
+#include <joy.h>
 #include <rand.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tms.h>
 #include <tms_patterns.h>
-#include <joy.h>
-#include "bombs.h"
 
-#define MAX_BOMBS 12
+#define MAX_BOMBS 8
 
 extern void drawbomb(char *p, uint8_t f);
 
@@ -31,6 +31,7 @@ static uint8_t shellsleft;
 static uint8_t maxbombs;
 static uint8_t lvlctr;
 static uint8_t ctr;
+static uint8_t last; // Can't shoot twice in same position.
 
 // variable to record the frame count
 static uint8_t ff = 0;
@@ -54,6 +55,7 @@ void resetgame() {
   lvlctr = 10;
   ctr = 0;
   ff = 0;
+  last = 0;
   sprites[0].color = LIGHT_GREEN;
   sprites[0].pattern = 0;
   sprites[0].x = 128;
@@ -73,6 +75,7 @@ void resetgame() {
   sprites[4].y = 0xD0;
   memset(bombs, 0, sizeof(bomb_t) * MAX_BOMBS);
   memset(tms_buf, 0x20, tms_n_tbl_len);
+  paint();
   paint();
 }
 
@@ -136,11 +139,14 @@ void new_bomb(uint8_t idx) {
 // add a new shell sprite if there is not one already active.
 // Decrements teh shellsleft counter.
 bool do_shoot() {
+  if (sprites[0].x == last)
+    return true; // no shoot!
   if (!shellactive) {
     if (shellsleft > 0) {
       shellsleft--;
       shellactive = true;
       sprites[1].x = sprites[0].x;
+      last = sprites[0].x;
       return true;
     } else {
       return false;
@@ -215,6 +221,26 @@ bool plyrhit() {
 
 void gameloop() {
   while (1) {
+
+    if (cpm_rawio() == 0x1b)
+      return;
+
+    c = joy(0);
+    if ((c & JOY_MAP_BUTTON) == 0) {
+      if (!do_shoot())
+        return;
+    }
+    if (ctr == 6) {
+      ctr = 0;
+      if ((c & JOY_MAP_LEFT) == 0) {
+        if (sprites[0].x > 8)
+          sprites[0].x -= 24;
+      } else if ((c & JOY_MAP_RIGHT) == 0) {
+        if (sprites[0].x < 224)
+          sprites[0].x += 24;
+      }
+    }
+
     // we only check for bomb and player collisions at frame 0
     if (ff == 0) {
       bombhit();
@@ -252,40 +278,11 @@ void gameloop() {
         }
       }
     }
-    // TODO: Joystick controls
-    c = cpm_rawio();
-    switch (c) {
-    case ',':
-      if (sprites[0].x > 8)
-        sprites[0].x -= 24;
-      break;
-    case '.':
-      if (sprites[0].x < 224)
-        sprites[0].x += 24;
-      break;
-    case ' ':
-      if (!do_shoot())
-        return;
-      break;
-    case 0x1b:
-      return;
-    }
 
-    if (ctr == 6) {
-      ctr = 0;
-      c = joy(0);
-      if ((c & JOY_MAP_BUTTON) == 0) {
-        if (!do_shoot())
-          return;
-      }
-      if ( (c & JOY_MAP_LEFT) == 0) {
-        if (sprites[0].x > 8)
-          sprites[0].x -= 24;
-      } else if ( (c & JOY_MAP_RIGHT) == 0) {
-        if (sprites[0].x < 224)
-          sprites[0].x += 24;
-      }
-    }
+    if (sprites[0].x == last)
+      sprites[0].color = LIGHT_RED;
+    else
+      sprites[0].color = LIGHT_GREEN;
 
     uitoa(shellsleft, tb);
     tms_puts_xy(1, 0, "SHELLS       ");
@@ -300,60 +297,67 @@ void gameloop() {
     if (ff > 3)
       ff = 0;
     // paint right at the end.  Will wait for next vdp interrupt
-    ctr ++;
+    ctr++;
     paint();
   }
 }
 
-void center(uint8_t y, char* txt) {
-  uint8_t x = 15 - (strlen(txt) / 2);
-  tms_puts_xy(x, y, txt);
-}
+  void center(uint8_t y, char *txt) {
+    uint8_t x = 15 - (strlen(txt) / 2);
+    tms_puts_xy(x, y, txt);
+  }
 
-bool menu() {
-  memset(tms_buf + 32, 0x20, tms_n_tbl_len - 32);
-  center(8, "Bombs Away");
-  center(10, "By productiondave");
-  center(11, "(c) 2025");
-  center(13, "v 1.0.0");
-  center(23, "Press a key or button to play");
-  sprites[0].y = 192;
-  paint();
+  void delay(uint8_t d) {
+    while (d-- > 0)
+      tms_wait();
+  }
 
-  while (1) {
-    c = cpm_rawio();
-    if (c > 0) {
-      if (c == 0x1b) {
-        return false;
-      } else {
-        c = 0;  // don't want to shoot a shell right away.
+  bool menu() {
+    memset(tms_buf + 32, 0x20, tms_n_tbl_len - 32);
+    center(8, "Bombs Away");
+    center(10, "By productiondave");
+    center(11, "(c) 2025");
+    center(13, "v 1.0.0");
+    center(23, "Press a key or button to play");
+    sprites[0].y = 192;
+    paint();
+
+    while (1) {
+      c = cpm_rawio();
+      if (c > 0) {
+        if (c == 0x1b) {
+          return false;
+        } else {
+          c = 0; // don't want to shoot a shell right away.
+          return true;
+        }
+      }
+
+      if ((joy(0) & JOY_MAP_BUTTON) == 0) {
+        delay(30);
         return true;
       }
     }
-
-    //if ((joy(0) & JOY_MAP_BUTTON) == 0)
-    //  return true;
   }
-}
 
-// Main entry function of the game.
-void main() {
-  bool play = true;
-  // Init the display and tiles etc.
-  vidsetup();
-  resetgame();
-
-  // main game loop
-  while (play) {
-    play = menu();
+  // Main entry function of the game.
+  void main() {
+    bool play = true;
+    // Init the display and tiles etc.
+    vidsetup();
     resetgame();
-    if (play) {
-      paint();
-      gameloop();
+
+    // main game loop
+    while (play) {
+      play = menu();
+      resetgame();
+      if (play) {
+        paint();
+        gameloop();
+      }
     }
+    resetgame();
+    sprites[0].y = 192;
+    center(11, "Goodbye");
+    paint();
   }
-  resetgame();
-  sprites[0].y = 192;
-  center(11,"Goodbye");
-  paint();
-}

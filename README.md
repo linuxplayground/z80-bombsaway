@@ -8,10 +8,7 @@ Shells restock every 10 points but the number of missiles increases too.
 
 You can only shoot one shell at a time.
 
-> I am considering changing this mechanic to 3 shells at once.  So far I have
-> found that tracking 3 shells and more than 16 missiles impacts game
-> performance.  More testing and optimization is needed.  So for now, It's one
-> in-flight shell at a time and a cap of 16 missiles.
+You can not shoot from the same position twice in a row.
 
 There is no penalty for missing missiles other than you don't score any points.
 You are incentivized, therefore, to avoid being hit and occasionally shoot down
@@ -22,15 +19,6 @@ zero shells, the game will be over.
 
 ![Menu](./menuscreen.png)
 ![Game](./gameplayscreen.png)
-
-## Keyboard controls
-
-``` text
-, (<)   = LEFT
-. (>)   = RIGHT
-SPACE   = SHOOT
-ESCAPE  = QUIT
-```
 
 ## Joystick controls
 

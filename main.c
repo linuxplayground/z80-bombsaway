@@ -6,11 +6,9 @@
 #include <tms.h>
 #include <tms_patterns.h>
 #include <joy.h>
-
 #include "bombs.h"
 
-#define MAX_BOMBS 20
-#define MAX_SHELLS 1
+#define MAX_BOMBS 12
 
 extern void drawbomb(char *p, uint8_t f);
 
@@ -21,23 +19,62 @@ typedef struct bomb_s {
 } bomb_t;
 
 static bomb_t bombs[MAX_BOMBS];
-static bool shells[MAX_SHELLS];
+static bool shellactive = false;
 
 static char g1colors[32];
-static uint8_t i = 0;
-static uint8_t j = 0;
-static uint16_t I = 0;
-static char c = 0;
-static uint16_t score = 0;
-static uint8_t shellsleft = 12;
-static uint8_t maxbombs = 4;
-static uint8_t lvlctr = 10;
-static uint8_t ctr = 0;
+static uint8_t i;
+static uint8_t j;
+static uint16_t I;
+static char c;
+static uint16_t score;
+static uint8_t shellsleft;
+static uint8_t maxbombs;
+static uint8_t lvlctr;
+static uint8_t ctr;
 
 // variable to record the frame count
 static uint8_t ff = 0;
 
 static char tb[32];
+
+void paint() {
+  tms_wait();
+  tms_g1flush(tms_buf);
+  tms_flush_sprites();
+}
+
+void resetgame() {
+  i = 0;
+  j = 0;
+  I = 0;
+  c = 0;
+  score = 0;
+  shellsleft = 12;
+  maxbombs = 4;
+  lvlctr = 10;
+  ctr = 0;
+  ff = 0;
+  sprites[0].color = LIGHT_GREEN;
+  sprites[0].pattern = 0;
+  sprites[0].x = 128;
+  sprites[0].y = 175;
+  sprites[1].color = DARK_RED;
+  sprites[1].pattern = 4;
+  sprites[1].x = 128;
+  sprites[1].y = 192;
+  sprites[2].color = DARK_RED;
+  sprites[2].pattern = 4;
+  sprites[2].x = 128;
+  sprites[2].y = 192;
+  sprites[3].color = DARK_RED;
+  sprites[3].pattern = 4;
+  sprites[3].x = 128;
+  sprites[3].y = 192;
+  sprites[4].y = 0xD0;
+  memset(bombs, 0, sizeof(bomb_t) * MAX_BOMBS);
+  memset(tms_buf, 0x20, tms_n_tbl_len);
+  paint();
+}
 
 void vidsetup() {
   char *p = bomb;
@@ -63,29 +100,6 @@ void vidsetup() {
 
   // load sprite patterns and set up SAT
   tms_load_spr(sprsheet, 64);
-  sprites[0].color = LIGHT_GREEN;
-  sprites[0].pattern = 0;
-  sprites[0].x = 128;
-  sprites[0].y = 175;
-  sprites[1].color = DARK_RED;
-  sprites[1].pattern = 4;
-  sprites[1].x = 128;
-  sprites[1].y = 192;
-  sprites[2].color = DARK_RED;
-  sprites[2].pattern = 4;
-  sprites[2].x = 128;
-  sprites[2].y = 192;
-  sprites[3].color = DARK_RED;
-  sprites[3].pattern = 4;
-  sprites[3].x = 128;
-  sprites[3].y = 192;
-  sprites[4].y = 0xD0;
-}
-
-void paint() {
-  tms_wait();
-  tms_g1flush(tms_buf);
-  tms_flush_sprites();
 }
 
 // calls to an assembly routine (drawbomb.S) to plot the 6 tiles for the
@@ -119,20 +133,17 @@ void new_bomb(uint8_t idx) {
   }
 }
 
-// add a new shell sprite if there are not already MAX_SHELLS
-// in flight and there are sufficient shells left.
+// add a new shell sprite if there is not one already active.
 // Decrements teh shellsleft counter.
 bool do_shoot() {
-  for (i = 0; i < MAX_SHELLS; ++i) {
-    if (!shells[i]) {
-      if (shellsleft > 0) {
-        shellsleft--;
-        shells[i] = true;
-        sprites[i + 1].x = sprites[0].x;
-        return true;
-      } else {
-        return false;
-      }
+  if (!shellactive) {
+    if (shellsleft > 0) {
+      shellsleft--;
+      shellactive = true;
+      sprites[1].x = sprites[0].x;
+      return true;
+    } else {
+      return false;
     }
   }
   return true;
@@ -141,14 +152,12 @@ bool do_shoot() {
 // Moves the shells along their paths.  Hides those that pass through the
 // top of the screen and deactivates them.
 void animshells() {
-  for (i = 0; i < MAX_SHELLS; ++i) {
-    if (shells[i]) {
-      sprites[i + 1].y -= 2;
-      if (sprites[i + 1].y < 8) {
-        sprites[i + 1].y = 192;
-        shells[i] = false;
-        return;
-      }
+  if (shellactive) {
+    sprites[1].y -= 2;
+    if (sprites[1].y < 8) {
+      sprites[1].y = 192;
+      shellactive = false;
+      return;
     }
   }
 }
@@ -164,25 +173,23 @@ void clear_bomb(uint8_t j) {
 // If the coordinates of the shell overlap the tile position of any of the bombs
 // then clear the bomb, increase the socre and clear the shell.
 void bombhit() {
-  for (i = 0; i < MAX_SHELLS; ++i) {
-    if (shells[i]) {
-      for (j = 0; j < maxbombs; ++j) {
-        if (bombs[j].active) {
-          if (bombs[j].x * 8 == sprites[i + 1].x) {
-            if ((sprites[i + 1].y > bombs[j].y * 8) &&
-                (sprites[i + 1].y < bombs[j].y * 8 + 24)) {
-              clear_bomb(j);
-              shells[i] = false;
-              sprites[i + 1].y = 192;
-              score++;
-              lvlctr--;
-              if (lvlctr == 0) {
-                maxbombs += 2;
-                if (maxbombs > MAX_BOMBS)
-                  maxbombs = MAX_BOMBS;
-                shellsleft += 11;
-                lvlctr = 10;
-              }
+  if (shellactive) {
+    for (j = 0; j < maxbombs; ++j) {
+      if (bombs[j].active) {
+        if (bombs[j].x * 8 == sprites[1].x) {
+          if ((sprites[1].y > bombs[j].y * 8) &&
+              (sprites[1].y < bombs[j].y * 8 + 24)) {
+            clear_bomb(j);
+            shellactive = false;
+            sprites[1].y = 192;
+            score++;
+            lvlctr--;
+            if (lvlctr == 0) {
+              maxbombs += 2;
+              if (maxbombs > MAX_BOMBS)
+                maxbombs = MAX_BOMBS;
+              shellsleft += 11;
+              lvlctr = 10;
             }
           }
         }
@@ -206,22 +213,13 @@ bool plyrhit() {
   return false;
 }
 
-// Main entry function of the game.
-void main() {
-  // Init the display and tiles etc.
-  vidsetup();
-
-  memset(bombs, 0, sizeof(bomb_t) * MAX_BOMBS);
-  memset(shells, 0, MAX_SHELLS);
-
-  // main game loop
+void gameloop() {
   while (1) {
-
     // we only check for bomb and player collisions at frame 0
     if (ff == 0) {
       bombhit();
       if (plyrhit())
-        goto end;
+        return;
     }
 
     // Bomb animation
@@ -267,10 +265,10 @@ void main() {
       break;
     case ' ':
       if (!do_shoot())
-        goto end;
+        return;
       break;
     case 0x1b:
-      goto end;
+      return;
     }
 
     if (ctr == 6) {
@@ -278,7 +276,7 @@ void main() {
       c = joy(0);
       if ((c & JOY_MAP_BUTTON) == 0) {
         if (!do_shoot())
-          goto end;
+          return;
       }
       if ( (c & JOY_MAP_LEFT) == 0) {
         if (sprites[0].x > 8)
@@ -305,10 +303,57 @@ void main() {
     ctr ++;
     paint();
   }
+}
 
-end:
-  tms_puts_xy(8, 11, "GAME OVER");
-  tms_wait();
-  tms_g1flush(tms_buf);
-  return;
+void center(uint8_t y, char* txt) {
+  uint8_t x = 15 - (strlen(txt) / 2);
+  tms_puts_xy(x, y, txt);
+}
+
+bool menu() {
+  memset(tms_buf + 32, 0x20, tms_n_tbl_len - 32);
+  center(8, "Bombs Away");
+  center(10, "By productiondave");
+  center(11, "(c) 2025");
+  center(13, "v 1.0.0");
+  center(23, "Press a key or button to play");
+  sprites[0].y = 192;
+  paint();
+
+  while (1) {
+    c = cpm_rawio();
+    if (c > 0) {
+      if (c == 0x1b) {
+        return false;
+      } else {
+        c = 0;  // don't want to shoot a shell right away.
+        return true;
+      }
+    }
+
+    //if ((joy(0) & JOY_MAP_BUTTON) == 0)
+    //  return true;
+  }
+}
+
+// Main entry function of the game.
+void main() {
+  bool play = true;
+  // Init the display and tiles etc.
+  vidsetup();
+  resetgame();
+
+  // main game loop
+  while (play) {
+    play = menu();
+    resetgame();
+    if (play) {
+      paint();
+      gameloop();
+    }
+  }
+  resetgame();
+  sprites[0].y = 192;
+  center(11,"Goodbye");
+  paint();
 }

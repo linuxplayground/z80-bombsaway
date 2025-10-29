@@ -26,8 +26,8 @@ zero shells, the game will be over.
 ## Keyboard controls
 
 ``` text
-*, (<)* = LEFT
-*. (>)* = RIGHT
+, (<)   = LEFT
+. (>)   = RIGHT
 SPACE   = SHOOT
 ESCAPE  = QUIT
 ```

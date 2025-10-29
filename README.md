@@ -1,7 +1,6 @@
-<!-- vim: set ft=markdown tw=80 cc=80: -->
 # Bombs Away
 
-Bombs Away is a simple shooter game.  The missles are raining down on you and
+Bombs Away is a simple shooter game.  The missiles are raining down on you and
 you need to shoot as many of them as you can.  You have a limited number of
 shells, so use them wisely.
 
@@ -9,10 +8,20 @@ Shells restock every 10 points but the number of missiles increases too.
 
 You can only shoot one shell at a time.
 
+> I am considering changing this mechanic to 3 shells at once.  So far I have
+> found that tracking 3 shells and more than 16 missiles impacts game
+> performance.  More testing and optimization is needed.  So for now, It's one
+> in-flight shell at a time and a cap of 16 missiles.
+
 There is no penalty for missing missiles other than you don't score any points.
-You are incentivised, therefore, to avoid being hit and occastionally shoot down
+You are incentivized, therefore, to avoid being hit and occasionally shoot down
 missiles.  The number of shells available to you is quite limited.  If you reach
 zero shells, the game will be over.
+
+## Screenshots
+
+![Menu](./menuscreen.png)
+![Game](./gameplayscreen.png)
 
 ## Keyboard controls
 
@@ -37,7 +46,7 @@ The falling missiles are animated tiles.
 ## Animating the missiles
 
 The missile tile patterns are arranged such that there are 4 stages of animation
-for each vdp row in the name table.  Each stage is updated at the end of a
+for each VDP row in the name table.  Each stage is updated at the end of a
 frame.  Once the tile has moved through 4 stages of animation, the missile
 position in the nametable is incremented to the next horizontal row.
 
@@ -48,8 +57,8 @@ frame.
 
 Collision detection only happens on Frame 0.  Doing it this way, makes the
 collision detection routines very predictable.  We know precisely where the
-pixels of a missle are at frame 0 as the missile graphic covers a 16x16 pixel
-area. (2x2 tiles) at frame 0 only.  The missle is spread over a 2x6 tile grid on
+pixels of a missile are at frame 0 as the missile graphic covers a 16 x 16 pixel
+area. (2 x 2 tiles) at frame 0 only.  The missile is spread over a 2 x 6 tile grid on
 subsequent animation frames.
 
-
+<!-- vim: set ft=markdown tw=80 cc=80: -->

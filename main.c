@@ -324,7 +324,7 @@ bool menu() {
   center(8, "Bombs Away");
   center(10, "By productiondave");
   center(11, "(c) 2025");
-  center(13, "v 1.0.0");
+  center(13, "v 1.0.1");
   center(23, "Press button to play");
   sprites[0].y = 192;
   paint();

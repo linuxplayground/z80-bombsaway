@@ -9,14 +9,13 @@
 #include <tms.h>
 #include <tms_patterns.h>
 
-#define MAX_BOMBS 12
+#define MAX_BOMBS 24
 
 extern void drawbomb(char *p, uint8_t f);
 
 typedef struct bomb_s {
   bool active;
-  uint8_t x;
-  uint8_t y;
+  uint16_t yx;
 } bomb_t;
 
 static bomb_t bombs[MAX_BOMBS];
@@ -106,15 +105,7 @@ void vidsetup() {
   tms_load_spr(sprsheet, 64);
 }
 
-// calls to an assembly routine (drawbomb.S) to plot the 6 tiles for the
-// bomb into the framebuffer.
-// The frame is used as an offset to select which patterns to plot.
-// Frame 4 is a set of 6 blank patterns used for removing a bomb when hit.
-void plotbomb(uint8_t x, uint8_t y, uint8_t f) {
-  drawbomb(tms_buf + y * 32 + x, f);
-}
-
-// This rouitne searches through the inactive bombs
+// This routine searches through the inactive bombs
 // and finds one where the Y position is > 6.  This is to avoid bombs
 // overlapping each other.
 static uint8_t x;
@@ -123,14 +114,13 @@ void new_bomb(uint8_t idx) {
   while (fnd) {
     x = (rand() % 10) * 3 + 1;
     for (j = 0; j < maxbombs; ++j) {
-      if (bombs[j].active && bombs[j].x == x) {
-        if (bombs[j].y < 6)
+      if (bombs[j].active && (bombs[j].yx & 0x1F) == x) {
+        if ((bombs[j].yx >> 5) < 6)
           fnd = false;
       }
     }
     if (fnd) {
-      bombs[idx].x = x;
-      bombs[idx].y = 0;
+      bombs[idx].yx = x;
       bombs[idx].active = true;
       return;
     }
@@ -173,7 +163,7 @@ void animshells() {
 // plots the blank bomb (frame 4)
 void clear_bomb(uint8_t j) {
   bombs[j].active = false;
-  drawbomb(tms_buf + (bombs[j].y - 1) * 32 + bombs[j].x, 4);
+  drawbomb(tms_buf + bombs[j].yx - 32, 4);
 }
 
 // For every active shell, search through the active bombs
@@ -183,9 +173,9 @@ void bombhit() {
   if (shellactive) {
     for (j = 0; j < maxbombs; ++j) {
       if (bombs[j].active) {
-        if (bombs[j].x * 8 == sprites[1].x) {
-          if ((sprites[1].y > bombs[j].y * 8) &&
-              (sprites[1].y < bombs[j].y * 8 + 24)) {
+        if (((bombs[j].yx & 0x1F) << 3) == sprites[1].x) {
+          if ((sprites[1].y > ((bombs[j].yx >> 5) * 8)) &&
+              (sprites[1].y < ((bombs[j].yx >> 5) * 8) + 24)) {
             clear_bomb(j);
             shellactive = false;
             sprites[1].y = 192;
@@ -210,8 +200,8 @@ void bombhit() {
 bool plyrhit() {
   for (j = 0; j < maxbombs; ++j) {
     if (bombs[j].active) {
-      if (bombs[j].x * 8 == sprites[0].x) {
-        if (bombs[j].y > 21) {
+      if (((bombs[j].yx & 0x1F)<<3) == sprites[0].x) {
+        if ((bombs[j].yx >> 5) > 21) {
           return true;
         }
       }
@@ -223,9 +213,26 @@ bool plyrhit() {
 void gameloop() {
   while (1) {
 
-    if (cpm_rawio() == 0x1b)
+#if 0
+    c = cpm_rawio();
+    switch (c) {
+    case 0x1b:
       return;
-
+      break;
+    case ',':
+      if (sprites[0].x > 8)
+        sprites[0].x -= 24;
+      break;
+    case '.':
+      if (sprites[0].x < 224)
+        sprites[0].x += 24;
+      break;
+    case ' ':
+      if (!do_shoot())
+        return;
+      break;
+    }
+#else
     c = joy(0);
     if ((c & JOY_MAP_BUTTON) == 0) {
       if (!do_shoot())
@@ -241,7 +248,7 @@ void gameloop() {
           sprites[0].x += 24;
       }
     }
-
+#endif
     // we only check for bomb and player collisions at frame 0
     if (ff == 0) {
       bombhit();
@@ -255,10 +262,10 @@ void gameloop() {
       // At frame zero we need to paint the two cells above the bomb black.
       if (bombs[i].active) {
         if (ff == 0) {
-          tms_put_char(bombs[i].x, bombs[i].y - 1, ' ');
-          tms_put_char(bombs[i].x + 1, bombs[i].y - 1, ' ');
+          tms_buf[bombs[i].yx - 32] = ' ';
+          tms_buf[bombs[i].yx - 31] = ' ';
         }
-        plotbomb(bombs[i].x, bombs[i].y, ff);
+        drawbomb(tms_buf + bombs[i].yx, ff);
       }
     }
 
@@ -268,8 +275,8 @@ void gameloop() {
     if (ff == 3) {
       for (i = 0; i < maxbombs; ++i) {
         if (bombs[i].active) {
-          bombs[i].y++;
-          if (bombs[i].y > 24) {
+          bombs[i].yx += 32;
+          if ((bombs[i].yx >> 5) > 24) {
             bombs[i].active = false;
           }
         } else {
@@ -303,60 +310,63 @@ void gameloop() {
   }
 }
 
-  void center(uint8_t y, char *txt) {
-    uint8_t x = 15 - (strlen(txt) / 2);
-    tms_puts_xy(x, y, txt);
-  }
+void center(uint8_t y, char *txt) {
+  uint8_t x = 15 - (strlen(txt) / 2);
+  tms_puts_xy(x, y, txt);
+}
 
-  void delay(uint8_t d) {
-    while (d-- > 0)
-      tms_wait();
-  }
+void delay(uint8_t d) {
+  while (d-- > 0)
+    tms_wait();
+}
 
-  bool menu() {
-    memset(tms_buf + 32, 0x20, tms_n_tbl_len - 32);
-    center(8, "Bombs Away");
-    center(10, "By productiondave");
-    center(11, "(c) 2025");
-    center(13, "v 1.0.0");
-    center(23, "Press button to play");
-    sprites[0].y = 192;
-    paint();
+bool menu() {
+  memset(tms_buf + 32, 0x20, tms_n_tbl_len - 32);
+  center(8, "Bombs Away");
+  center(10, "By productiondave");
+  center(11, "(c) 2025");
+  center(13, "v 1.0.0");
+  center(23, "Press button to play");
+  sprites[0].y = 192;
+  paint();
 
-    while (1) {
-      c = cpm_rawio();
-      if (c > 0) {
-        if (c == 0x1b) {
-          return false;
-        }
+  while (1) {
+#if 0
+    c = cpm_rawio();
+    if (c > 0) {
+      if (c == 0x1b) {
+        return false;
+      } else {
+        return true;
       }
-
+    }
+#else
       c = joy(0);
       if ((c & JOY_MAP_BUTTON) == 0) {
         delay(30);
         return true;
       }
-    }
+#endif
   }
+}
 
-  // Main entry function of the game.
-  void main() {
-    bool play = true;
-    // Init the display and tiles etc.
-    vidsetup();
-    resetgame();
+// Main entry function of the game.
+void main() {
+  bool play = true;
+  // Init the display and tiles etc.
+  vidsetup();
+  resetgame();
 
-    // main game loop
-    while (play) {
-      play = menu();
-      resetgame();
-      if (play) {
-        paint();
-        gameloop();
-      }
-    }
+  // main game loop
+  while (play) {
+    play = menu();
+    if (!play) break;
     resetgame();
-    sprites[0].y = 192;
-    center(11, "Goodbye");
     paint();
+    gameloop();
   }
+  resetgame();
+  sprites[0].y = 192;
+  center(11, "Goodbye");
+  paint();
+}

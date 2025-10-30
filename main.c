@@ -9,7 +9,6 @@
 #include <tms.h>
 #include <tms_patterns.h>
 
-#define MAX_BOMBS 24
 
 extern void drawbomb(char *p, uint8_t f);
 
@@ -18,7 +17,7 @@ typedef struct bomb_s {
   uint16_t yx;
 } bomb_t;
 
-static bomb_t bombs[MAX_BOMBS];
+static bomb_t bombs[15];
 static bool shellactive = false;
 
 static char g1colors[32];
@@ -73,7 +72,7 @@ void resetgame() {
   sprites[3].x = 128;
   sprites[3].y = 192;
   sprites[4].y = 0xD0;
-  memset(bombs, 0, sizeof(bomb_t) * MAX_BOMBS);
+  memset(bombs, 0, sizeof(bomb_t) * 15);
   memset(tms_buf, 0x20, tms_n_tbl_len);
   paint();
   paint();
@@ -120,7 +119,7 @@ void new_bomb(uint8_t idx) {
       }
     }
     if (fnd) {
-      bombs[idx].yx = x;
+      bombs[idx].yx = 64+x;
       bombs[idx].active = true;
       return;
     }
@@ -128,7 +127,7 @@ void new_bomb(uint8_t idx) {
 }
 
 // add a new shell sprite if there is not one already active.
-// Decrements teh shellsleft counter.
+// Decrements the shells left counter.
 bool do_shoot() {
   if (sprites[0].x == last)
     return true; // no shoot!
@@ -138,7 +137,10 @@ bool do_shoot() {
       shellactive = true;
       sprites[1].x = sprites[0].x;
       last = sprites[0].x;
-      return true;
+      uitoa(shellsleft, tb);
+      tms_puts_xy(1, 0, "SHELLS    ");
+      tms_puts_xy(9, 0, tb);
+ return true;
     } else {
       return false;
     }
@@ -151,7 +153,7 @@ bool do_shoot() {
 void animshells() {
   if (shellactive) {
     sprites[1].y -= 2;
-    if (sprites[1].y < 8) {
+    if (sprites[1].y < 16) {
       sprites[1].y = 192;
       shellactive = false;
       return;
@@ -168,7 +170,7 @@ void clear_bomb(uint8_t j) {
 
 // For every active shell, search through the active bombs
 // If the coordinates of the shell overlap the tile position of any of the bombs
-// then clear the bomb, increase the socre and clear the shell.
+// then clear the bomb, increase the score and clear the shell.
 void bombhit() {
   if (shellactive) {
     for (j = 0; j < maxbombs; ++j) {
@@ -179,15 +181,17 @@ void bombhit() {
             clear_bomb(j);
             shellactive = false;
             sprites[1].y = 192;
-            score++;
             lvlctr--;
             if (lvlctr == 0) {
-              maxbombs += 2;
-              if (maxbombs > MAX_BOMBS)
-                maxbombs = MAX_BOMBS;
+              maxbombs = (maxbombs > 16) ? 16 : maxbombs + 2;
               shellsleft += 11;
               lvlctr = 10;
             }
+            // only need to update the score if we actually hit something.
+            score++;
+            uitoa(score, tb);
+            tms_puts_xy(15, 0, "SCORE       ");
+            tms_puts_xy(22, 0, tb);
           }
         }
       }
@@ -196,7 +200,7 @@ void bombhit() {
 }
 
 // For every active shell, check if the X position of the shell is aligned with
-// the player and that the y position overlapps the bottom of the screen.
+// the player and that the y position overlaps the bottom of the screen.
 bool plyrhit() {
   for (j = 0; j < maxbombs; ++j) {
     if (bombs[j].active) {
@@ -280,6 +284,7 @@ void gameloop() {
             bombs[i].active = false;
           }
         } else {
+          // if the bomb is inactive, then decide to make a new one.
           if ((rand() & 0xFF) < 0x10) {
             new_bomb(i);
           }
@@ -287,23 +292,17 @@ void gameloop() {
       }
     }
 
+    // indicate that the player can not shoot in this position.
     if (sprites[0].x == last)
       sprites[0].color = LIGHT_RED;
     else
       sprites[0].color = LIGHT_GREEN;
 
-    uitoa(shellsleft, tb);
-    tms_puts_xy(1, 0, "SHELLS       ");
-    tms_puts_xy(9, 0, tb);
-    uitoa(score, tb);
-    tms_puts_xy(15, 0, "SCORE       ");
-    tms_puts_xy(22, 0, tb);
     animshells();
 
     // we roll the frame back to 0 at 4
     ff++;
-    if (ff > 3)
-      ff = 0;
+    ff &= 3;
     // paint right at the end.  Will wait for next vdp interrupt
     ctr++;
     paint();
@@ -332,7 +331,6 @@ bool menu() {
 
   while (1) {
 #if 0
-    c = cpm_rawio();
     if (c > 0) {
       if (c == 0x1b) {
         return false;
@@ -341,6 +339,8 @@ bool menu() {
       }
     }
 #else
+      c = cpm_rawio();
+      if (c == 0x1b) return false;
       c = joy(0);
       if ((c & JOY_MAP_BUTTON) == 0) {
         delay(30);

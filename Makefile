@@ -4,8 +4,8 @@ AS=/opt/fcc/bin/asz80
 LD=/opt/fcc/bin/ldz80
 CPP=/usr/bin/cpp -undef -nostdinc
 
-ARCH=NOUVEAU
-arch=nouveau
+ARCH=RETRO
+arch=retro
 
 CFLAGS=-O2 -mz80 -I $(HOME)/dev/libcpm/include -I $(HOME)/dev/libcpm/include/arch/$(ARCH)/
 LDFLAGS=-b -C0x100
@@ -23,7 +23,7 @@ APPNAME=bombs
 
 all: $(APPNAME).com
 
-$(APPNAME).bin:$(CRT0) drawbomb.o main.o
+$(APPNAME).bin:$(CRT0) drawbomb.o fastrand.o main.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 $(APPNAME).com: $(APPNAME).bin
@@ -31,6 +31,9 @@ $(APPNAME).com: $(APPNAME).bin
 
 drawbomb.s: drawbomb.S
 	$(CPP) $(CPPFLAGS) -o $@ $^
+fastrand.s: fastrand.S
+	$(CPP) $(CPPFLAGS) -o $@ $^
+
 
 clean:
 	rm -fv *.s

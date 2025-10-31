@@ -2,7 +2,7 @@
 #include <cpm.h>
 #include <io.h>
 #include <joy.h>
-#include <rand.h>
+//#include <rand.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +11,7 @@
 
 
 extern void drawbomb(char *p, uint8_t f);
+extern uint8_t fastrand();
 
 typedef struct bomb_s {
   bool active;
@@ -63,15 +64,7 @@ void resetgame() {
   sprites[1].pattern = 4;
   sprites[1].x = 128;
   sprites[1].y = 192;
-  sprites[2].color = DARK_RED;
-  sprites[2].pattern = 4;
-  sprites[2].x = 128;
-  sprites[2].y = 192;
-  sprites[3].color = DARK_RED;
-  sprites[3].pattern = 4;
-  sprites[3].x = 128;
-  sprites[3].y = 192;
-  sprites[4].y = 0xD0;
+  sprites[2].y = 0xD0;
   memset(bombs, 0, sizeof(bomb_t) * 15);
   memset(tms_buf, 0x20, tms_n_tbl_len);
   paint();
@@ -111,7 +104,7 @@ static uint8_t x;
 void new_bomb(uint8_t idx) {
   bool fnd = true;
   while (fnd) {
-    x = (rand() % 10) * 3 + 1;
+    x = (fastrand() % 10) * 3 + 1;
     for (j = 0; j < maxbombs; ++j) {
       if (bombs[j].active && (bombs[j].yx & 0x1F) == x) {
         if ((bombs[j].yx >> 5) < 6)
@@ -183,7 +176,8 @@ void bombhit() {
             sprites[1].y = 192;
             lvlctr--;
             if (lvlctr == 0) {
-              maxbombs = (maxbombs > 16) ? 16 : maxbombs + 2;
+              if (maxbombs < 16)
+                maxbombs +=2;
               shellsleft += 11;
               lvlctr = 10;
             }
@@ -204,8 +198,8 @@ void bombhit() {
 bool plyrhit() {
   for (j = 0; j < maxbombs; ++j) {
     if (bombs[j].active) {
-      if (((bombs[j].yx & 0x1F)<<3) == sprites[0].x) {
-        if ((bombs[j].yx >> 5) > 21) {
+      if ((bombs[j].yx >> 5) > 21) {
+        if (((bombs[j].yx & 0x1F)<<3) == sprites[0].x) {
           return true;
         }
       }
@@ -237,6 +231,9 @@ void gameloop() {
       break;
     }
 #else
+    c = cpm_rawio();
+    if (c == 0x1b) return;
+
     c = joy(0);
     if ((c & JOY_MAP_BUTTON) == 0) {
       if (!do_shoot())
@@ -255,10 +252,11 @@ void gameloop() {
 #endif
     // we only check for bomb and player collisions at frame 0
     if (ff == 0) {
-      bombhit();
-      if (plyrhit())
-        return;
+      if (plyrhit()) return;
     }
+
+    // do bomb collision at frame 1
+    if (ff == 1) bombhit();
 
     // Bomb animation
     for (i = 0; i < maxbombs; ++i) {
@@ -285,7 +283,7 @@ void gameloop() {
           }
         } else {
           // if the bomb is inactive, then decide to make a new one.
-          if ((rand() & 0xFF) < 0x10) {
+          if ((fastrand() & 0xFF) < 0x80) {
             new_bomb(i);
           }
         }

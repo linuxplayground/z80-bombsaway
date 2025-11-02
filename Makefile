@@ -1,48 +1,46 @@
-TOP=..
-CC=/opt/fcc/bin/fcc
-AS=/opt/fcc/bin/asz80
-LD=/opt/fcc/bin/ldz80
-CPP=/usr/bin/cpp -undef -nostdinc
+#****************************************************************************
+#
+#    Copyright (C) 2025 David Latham
+#
+#    This library is free software; you can redistribute it and/or
+#    modify it under the terms of the GNU Lesser General Public
+#    License as published by the Free Software Foundation; either
+#    version 2.1 of the License, or (at your option) any later version.
+#
+#    This library is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#    Lesser General Public License for more details.
+#
+#    You should have received a copy of the GNU Lesser General Public
+#    License along with this library; if not, write to the Free Software
+#    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
+#    USA
+#
+# https://github.com/linuxplayground/z80-compiler-kit-libcpm
+#
+#****************************************************************************
+TOP=.
 
-ARCH=RETRO
-arch=retro
+all:: retro nouveau nabu
 
-CFLAGS=-O2 -mz80 -I $(HOME)/dev/libcpm/include -I $(HOME)/dev/libcpm/include/arch/$(ARCH)/
-LDFLAGS=-b -C0x100
-CPPFLAGS=
-LDLIBS=\
-	$(HOME)/dev/libcpm/lib/arch/$(arch)/libcpm.a \
-	/opt/fcc/lib/z80/libz80.a \
-	/opt/fcc/lib/z80/libc.a
+retro:
+	make -C arch/RETRO
 
-CRT0=$(HOME)/dev/libcpm/lib/arch/$(arch)/crt0.o
+nouveau:
+	make -C arch/NOUVEAU
 
-APPNAME=bombs
+nabu:
+	make -C arch/NABU
 
-.INTERMEDIATE: $(APPNAME).bin
-
-all: $(APPNAME).com
-
-$(APPNAME).bin:$(CRT0) drawbomb.o fastrand.o main.o
-	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-
-$(APPNAME).com: $(APPNAME).bin
-	dd if=$^ of=$@ skip=1 bs=256
-
-drawbomb.s: drawbomb.S
-	$(CPP) $(CPPFLAGS) -o $@ $^
-fastrand.s: fastrand.S
-	$(CPP) $(CPPFLAGS) -o $@ $^
-
-
-clean:
-	rm -fv *.s
-	rm -fv *.o
-	rm -fv $(APPNAME).com
+clean::
+	make -C arch/RETRO clean
+	make -C arch/NOUVEAU clean
+	make -C arch/NABU clean
 
 world: clean all
 
-copy:
-	cpmrm -f z80-retro-8k-8m /dev/loop0p1 0:$(APPNAME).com
-	cpmcp -f z80-retro-8k-8m /dev/loop0p1 $(APPNAME).com 0:
+copy: build/arch/RETRO/bombs.com
+	cpmrm -f z80-retro-8k-8m /dev/loop0p1 0:bombs.com
+	cpmcp -f z80-retro-8k-8m /dev/loop0p1 build/arch/RETRO/bombs.com 0:
 

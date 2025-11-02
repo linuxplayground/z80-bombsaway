@@ -1,17 +1,20 @@
 #include "bombs.h"
+#include "audio.h"
+
 #include <cpm.h>
 #include <io.h>
 #include <joy.h>
-//#include <rand.h>
+#include <rand.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tms.h>
 #include <tms_patterns.h>
+#include <ay-3-8910.h>
+#include <ay-notes.h>
 
 
 extern void drawbomb(char *p, uint8_t f);
-extern uint8_t fastrand();
 
 typedef struct bomb_s {
   bool active;
@@ -32,6 +35,8 @@ static uint8_t maxbombs;
 static uint8_t lvlctr;
 static uint8_t ctr;
 static uint8_t last; // Can't shoot twice in same position.
+static uint8_t beatctr; // beat counter for music
+static uint8_t beattmr; // beat timer for music
 
 // variable to record the frame count
 static uint8_t ff = 0;
@@ -56,6 +61,9 @@ void resetgame() {
   ctr = 0;
   ff = 0;
   last = 0;
+  beatctr = 0;
+  beattmr = 0;
+
   sprites[0].color = LIGHT_GREEN;
   sprites[0].pattern = 0;
   sprites[0].x = 128;
@@ -303,6 +311,14 @@ void gameloop() {
     ff &= 3;
     // paint right at the end.  Will wait for next vdp interrupt
     ctr++;
+    // Music
+    beattmr ++;
+    beattmr &= 7;
+    if (beattmr == 0) {
+      ay_play_note_delay(music[beatctr], 0, 2000);
+      beatctr ++;
+      beatctr &= 7;
+    }
     paint();
   }
 }
@@ -353,6 +369,9 @@ void main() {
   bool play = true;
   // Init the display and tiles etc.
   vidsetup();
+  ay_write(AY_MIXER, AY_MIX_TONE_A);
+  ay_write(AY_VOLUME_A, 0x08);
+
   resetgame();
 
   // main game loop

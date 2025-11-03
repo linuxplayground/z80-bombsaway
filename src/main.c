@@ -169,6 +169,7 @@ void clear_bomb(uint8_t j) {
   drawbomb(tms_buf + bombs[j].yx - 32, 4);
 }
 
+
 // For every active shell, search through the active bombs
 // If the coordinates of the shell overlap the tile position of any of the bombs
 // then clear the bomb, increase the score and clear the shell.
@@ -183,6 +184,7 @@ void bombhit() {
             shellactive = false;
             sprites[1].y = 192;
             lvlctr--;
+            ay_play_note_delay(8, 2, 1000);
             if (lvlctr == 0) {
               if (maxbombs < 16)
                 maxbombs +=2;
@@ -203,11 +205,24 @@ void bombhit() {
 
 // For every active shell, check if the X position of the shell is aligned with
 // the player and that the y position overlaps the bottom of the screen.
+void delay(uint8_t d) {
+  while (d-- > 0)
+    tms_wait();
+}
+
 bool plyrhit() {
   for (j = 0; j < maxbombs; ++j) {
     if (bombs[j].active) {
       if ((bombs[j].yx >> 5) > 21) {
         if (((bombs[j].yx & 0x1F)<<3) == sprites[0].x) {
+          ay_write(AY_VOLUME_A, 0x00);
+          ay_write(AY_VOLUME_C, 0x1F);
+          ay_write(AY_PERIOD_NOISE, 0x1F);
+          ay_write(AY_ENVELOPE_F, 0x00);
+          ay_write(AY_ENVELOPE_C, 0x20);
+          ay_write(AY_ENVELOPE_SHAPE, AY_ENV_SHAPE_FADE_OUT);
+          delay(90);
+
           return true;
         }
       }
@@ -313,9 +328,9 @@ void gameloop() {
     ctr++;
     // Music
     beattmr ++;
-    beattmr &= 7;
+    beattmr &= 15;
     if (beattmr == 0) {
-      ay_play_note_delay(music[beatctr], 0, 2000);
+      ay_play_note_delay(music[beatctr], 0, 0);
       beatctr ++;
       beatctr &= 7;
     }
@@ -328,10 +343,6 @@ void center(uint8_t y, char *txt) {
   tms_puts_xy(x, y, txt);
 }
 
-void delay(uint8_t d) {
-  while (d-- > 0)
-    tms_wait();
-}
 
 bool menu() {
   memset(tms_buf + 32, 0x20, tms_n_tbl_len - 32);
@@ -369,9 +380,10 @@ void main() {
   bool play = true;
   // Init the display and tiles etc.
   vidsetup();
-  ay_write(AY_MIXER, AY_MIX_TONE_A);
-  ay_write(AY_VOLUME_A, 0x08);
-
+  ay_write(AY_MIXER, 0x5A);
+  ay_write(AY_VOLUME_A, 0x00);
+  ay_write(AY_VOLUME_C, 0x1F);
+  ay_write(AY_PERIOD_NOISE, 0x1F);
   resetgame();
 
   // main game loop
@@ -380,7 +392,11 @@ void main() {
     if (!play) break;
     resetgame();
     paint();
+    ay_write(AY_VOLUME_A, 0x07);
+    ay_write(AY_PERIOD_NOISE, 0x04);
     gameloop();
+    ay_write(AY_VOLUME_A, 0x00);
+    ay_write(AY_VOLUME_C, 0x00);
   }
   resetgame();
   sprites[0].y = 192;

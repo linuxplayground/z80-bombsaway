@@ -12,9 +12,9 @@ CPPFLAGS=$(INCLUDES) -D$(ARCH)
 LDFLAGS=-b -C0x100
 BUILD_DIR=$(TOP)/build/arch/$(ARCH)
 
-LDLIBS=$(HOME)/dev/libcpm/lib/arch/$(arch)/libcpm.a /opt/fcc/lib/z80/libc.a /opt/fcc/lib/z80/libz80.a
+LDLIBS=$(HOME)/dev/libcpm/lib/arch/$(ARCH)/libcpm.a /opt/fcc/lib/z80/libc.a /opt/fcc/lib/z80/libz80.a
 
-CRT0=$(HOME)/dev/libcpm/lib/arch/$(arch)/crt0.o
+CRT0=$(HOME)/dev/libcpm/lib/arch/$(ARCH)/crt0.o
 
 SRC_S=$(wildcard $(TOP)/asm/*.S)
 SRC_s=$(patsubst $(TOP)/asm/%.o, $(BUILD_DIR)/%.s, $(SRC_S))

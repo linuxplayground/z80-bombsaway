@@ -33,6 +33,8 @@
 #include <ay-notes.h>
 
 
+#define MAX_BOMBS 16
+
 extern void drawbomb(char *p, uint8_t f);
 
 typedef struct bomb_s {
@@ -40,7 +42,7 @@ typedef struct bomb_s {
   uint16_t yx;
 } bomb_t;
 
-static bomb_t bombs[15];
+static bomb_t bombs[MAX_BOMBS];
 static bool shellactive = false;
 
 static char g1colors[32];
@@ -92,7 +94,7 @@ void resetgame() {
   sprites[1].x = 128;
   sprites[1].y = 192;
   sprites[2].y = 0xD0;
-  memset(bombs, 0, sizeof(bomb_t) * 15);
+  memset(bombs, 0, sizeof(bomb_t) * MAX_BOMBS);
   memset(tms_buf, 0x20, tms_n_tbl_len);
   paint();
   paint();
@@ -205,7 +207,7 @@ void bombhit() {
             lvlctr--;
             ay_play_note_delay(8, 2, 1000);
             if (lvlctr == 0) {
-              if (maxbombs < 16)
+              if (maxbombs < MAX_BOMBS)
                 maxbombs +=2;
               shellsleft += 11;
               lvlctr = 10;

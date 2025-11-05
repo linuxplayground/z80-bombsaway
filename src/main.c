@@ -256,7 +256,7 @@ void gameloop() {
   while (1) {
 
 #if 0
-    c = cpm_rawio();
+    c = cpm_dc_in();
     switch (c) {
     case 0x1b:
       return;
@@ -275,7 +275,7 @@ void gameloop() {
       break;
     }
 #else
-    c = cpm_rawio();
+    c = cpm_dc_in();
     if (c == 0x1b) return;
 
     c = joy(0);
@@ -385,7 +385,7 @@ bool menu() {
       }
     }
 #else
-      c = cpm_rawio();
+      c = cpm_dc_in();
       if (c == 0x1b) return false;
       c = joy(0);
       if ((c & JOY_MAP_BUTTON) == 0) {

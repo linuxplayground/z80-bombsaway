@@ -374,6 +374,7 @@ bool menu() {
   center(23, "Press button to play");
   sprites[0].y = 192;
   paint();
+  paint();
 
   while (1) {
 #if 0
